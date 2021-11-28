@@ -30,6 +30,8 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 	double[][] up;
 	double[][] upp;
 	double[][] e;
+	double[][] bx;
+	double[][] by;
 	double[][] eavg;
 	double[][] phix;
 	double[][] phiy;
@@ -54,14 +56,14 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 	double sigmasq = sigma*sigma;
 	double time = 0.0;
 	int measurementsteps = 0;
-	int maxmeasurementsteps = 500;
+	int maxmeasurementsteps = 100;
 	double avgintensity = 0;
 
 	double obstconfinementwidth = 61;
 	double obstconfinementheight = 29;
 	double obstconfinementwidth_random = 61*0.8;
 	double obstconfinementheight_random = 29*0.8;
-	double obstacleradius = 1.25;
+	double obstacleradius = 1.3;
 	
 	boolean paused = false;
 	boolean frame = false;
@@ -86,6 +88,8 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 		up = new double[nx][ny];
 		upp = new double[nx][ny];
 		e = new double[nx][ny];
+		bx = new double[nx][ny];
+		by = new double[nx][ny];
 		eavg = new double[nx][ny];
 		phix = new double[nx][ny];
 		phiy = new double[nx][ny];
@@ -100,6 +104,8 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 				up[i][j]=0.0;
 				upp[i][j]=0.0;
 				e[i][j]=0.0;
+				bx[i][j]=0.0;
+				by[i][j]=0.0;
 				eavg[i][j]=0.0;
 				phix[i][j]=0.0;
 				phiy[i][j]=0.0;
@@ -119,7 +125,7 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 //		SquareGridWithRandomOffset();
 //		HexGrid();
 //		SquareGrid();
-		Vshape();
+//		Vshape();
 
 		this.setVisible(true);
 		r= new RenderCanvas(this);
@@ -326,6 +332,7 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 			if (!experimentended && time > 15.0) {
 				measure = true;
 				paused = true;
+				experimentended = true;
 			}
 			
 			/*Interior*/
@@ -334,10 +341,16 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 				for (int j = 1; j < ny-1; j++)
 				{
 					u[i][j] = sigmasq*(up[i+1][j] + up[i-1][j] + up[i][j+1] + up[i][j-1] - 4*up[i][j]) + 2*up[i][j] - upp[i][j]; // - 0.1*dt*(up[i][j] - upp[i][j]);
-					phix[i][j] = -(up[i][j] - upp[i][j])*(up[i+1][j]-up[i-1][j])/(2.0*ds*dt);
-					phiy[i][j] = -(up[i][j] - upp[i][j])*(up[i][j+1]-up[i][j-1])/(2.0*ds*dt);
-					e[i][j] = (c*c*((up[i+1][j] - up[i-1][j])*(up[i+1][j] - up[i-1][j]) + (up[i][j+1] - up[i][j-1])*(up[i][j+1] - up[i][j-1]))/(4*ds*ds) + (up[i][j]-upp[i][j])*(up[i][j]-upp[i][j])/(dt*dt));
-					
+					//if (!newenergy) {
+					//phix[i][j] = -(up[i][j] - upp[i][j])*(up[i+1][j]-up[i-1][j])/(2.0*ds*dt);
+					//phiy[i][j] = -(up[i][j] - upp[i][j])*(up[i][j+1]-up[i][j-1])/(2.0*ds*dt);
+					//e[i][j] = (c*c*((up[i+1][j] - up[i-1][j])*(up[i+1][j] - up[i-1][j]) + (up[i][j+1] - up[i][j-1])*(up[i][j+1] - up[i][j-1]))/(4*ds*ds) + (up[i][j]-upp[i][j])*(up[i][j]-upp[i][j])/(dt*dt));
+					//}
+					bx[i][j] += -dt/(2*ds)*(up[i][j+1] - up[i][j-1]);
+					by[i][j] += dt/(2*ds)*(up[i+1][j] - up[i-1][j]);
+					phix[i][j] = -u[i][j]*by[i][j];
+					phiy[i][j] = u[i][j]*bx[i][j];
+					e[i][j] = c*c*u[i][j]*u[i][j] + (by[i][j]*by[i][j] + by[i][j]*by[i][j]);
 					eavg[i][j] = 0.99*eavg[i][j] + 0.01*e[i][j];
 				}
 			}
@@ -473,7 +486,9 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 			brightness++;
 		} else if (e.getKeyCode() == KeyEvent.VK_MINUS) {
 			brightness--;
-		}
+		}// else if (e.getKeyCode() == KeyEvent.VK_E) {
+		//	newenergy = !newenergy;
+		//}
 	}
 
 	@Override
@@ -552,11 +567,11 @@ class RenderCanvas extends JPanel {
 		for (int i = 0; i < MicrowaveObstacleSimulation.nx; i++) {
 			for (int j = 0; j < MicrowaveObstacleSimulation.ny; j++) {
 				double scalingconstant = Math.pow(2.0, parent.brightness/2.0);
-				int energy = (int) Math.round(parent.e[i][j]*0.00005*scalingconstant);
-				int energyavg = (int) Math.round(parent.eavg[i][j]*0.00015*scalingconstant);
-				int displacement = (int) Math.round(parent.u[i][j]*10.0*scalingconstant);
-				int fluxx = (int) Math.round(parent.phix[i][j]*0.01*scalingconstant);
-				int fluxy = (int) Math.round(parent.phiy[i][j]*0.01*scalingconstant);
+				int energy = (int) Math.round(parent.e[i][j]*0.0005*scalingconstant);
+				int energyavg = (int) Math.round(parent.eavg[i][j]*0.0015*scalingconstant);
+				int displacement = (int) Math.round(parent.u[i][j]*10*scalingconstant);
+				int fluxx = (int) Math.round(parent.phix[i][j]*10*scalingconstant);
+				int fluxy = (int) Math.round(parent.phiy[i][j]*10*scalingconstant);
 				Color c = Color.WHITE;
 				if (parent.view == 1) {
 					c = new Color(clamp(Math.abs(fluxx)+128, 0, 255), clamp(127+energy, 0, 255), clamp(Math.abs(fluxy) + 128, 0, 255));
@@ -594,7 +609,7 @@ class RenderCanvas extends JPanel {
 			g.setColor(Color.BLACK);
 			g.drawLine(graphcx + 15*(i - parent.detectornum/2), imgheight-2-(int)(225.0*parent.detectors[i].avgintensity/Imax), graphcx + 15*(1 + i - parent.detectornum/2), imgheight-2-(int)(225.0*parent.detectors[i+1].avgintensity/Imax));
 		}
-		g.drawString("Average intensity: " + parent.avgintensity/100.0, 20, imgheight-20);
+		g.drawString("Average intensity: " + parent.avgintensity, 20, imgheight-20);
 		g.drawString("Time: " + String.format("%2.2f", parent.time), 20, imgheight-40);
 		real.drawImage(screen, 0, 0, parent);
 	}
