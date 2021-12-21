@@ -6,10 +6,13 @@
 
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.MouseInfo;
 import java.awt.PointerInfo;
+import java.awt.RenderingHints;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
@@ -58,14 +61,16 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 	int measurementsteps = 0;
 	int maxmeasurementsteps = 100;
 	double avgintensity = 0;
+	double intensityfactor = 10.0;
+	int iterationmultiplier = 1;
 
 	double obstconfinementwidth = 61;
 	double obstconfinementheight = 29;
 	double obstconfinementwidth_random = 61*0.8;
 	double obstconfinementheight_random = 29*0.8;
-	double obstacleradius = 1.3;
+	double obstacleradius = 1.25;
 	
-	boolean paused = false;
+	boolean paused = true;
 	boolean frame = false;
 	boolean clear = false;
 	boolean reset = false;
@@ -123,7 +128,7 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 /** Configurations **/
 //		goldenRatio2();
 //		SquareGridWithRandomOffset();
-//		HexGrid();
+		HexGrid();
 //		SquareGrid();
 //		Vshape();
 
@@ -134,6 +139,7 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 		r.addMouseMotionListener(this);
 		this.addKeyListener(this);
 		this.setVisible(true);
+		this.setTitle("Microwave diffraction");
 		r.setPreferredSize(new Dimension(r.imgwidth-1, r.imgheight));
 		this.pack();
 		for (double x = -10; x < 2; x += 0.2) {
@@ -273,7 +279,7 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 			}
 		}
 		if (addtolist) {
-			System.out.println("Obstacle #" + obstacle + ": x = " + String.format("%2.2f", x) + ", y = " + String.format("%2.2f", y));
+			//System.out.println("Obstacle #" + obstacle + ": x = " + String.format("%2.2f", x) + ", y = " + String.format("%2.2f", y));
 		}
 		return true;
 	}
@@ -368,7 +374,7 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 			int halfwidth = (int)(0.66/ds);
 			//halfwidth = (int)(24.9/ds);
 			for (int j = ctr-halfwidth; j <= ctr+halfwidth; j++) {
-				u[2][j] += dt*3.0*1500*(Math.sin(2*Math.PI*10.5*time));
+				u[2][j] += dt*3.0*1500*(Math.sin(2*Math.PI*10.5*time))*Math.atan(4*time*time);
 				//u[2][j] = Math.atan(4*time*time)*200*(Math.sin(2*Math.PI*1.5*time));
 				//u[2][j] = 20.0*(Math.random()-0.5);
 			}
@@ -390,7 +396,7 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 			}
 			if (measure) {
 				for (int i = 0; i < detectornum; i++) {
-					System.out.println(detectors[i].number + "\t" + (detectors[i].avgintensity/100.0));
+					System.out.println(detectors[i].number + "\t" + (detectors[i].avgintensity*intensityfactor));
 				}
 				measure=false;
 			}
@@ -410,8 +416,6 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 			frame = false;
 		}
 	}
-
-	static int PHYS_MULTIPLIER = 5;
 	
 	@Override
 	public void run() {
@@ -419,7 +423,7 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 			try {
 				Thread.sleep(17);
 			} catch (InterruptedException e) {}
-			for (int i = 0; i < PHYS_MULTIPLIER ; i++)
+			for (int i = 0; i < iterationmultiplier ; i++)
 				this.Physics();
 			r.repaint();
 		}
@@ -476,6 +480,8 @@ public class MicrowaveObstacleSimulation extends JFrame implements Runnable, Mou
 			view = 2;
 		} else if (e.getKeyCode() == KeyEvent.VK_3) {
 			view = 3;
+		} else if (e.getKeyCode() == KeyEvent.VK_4) {
+			view = 4;
 		} else if (e.getKeyCode() == KeyEvent.VK_C) {
 			clear = true;
 		} else if (e.getKeyCode() == KeyEvent.VK_R) {
@@ -562,7 +568,7 @@ class RenderCanvas extends JPanel {
 	@Override
 	public void paintComponent(Graphics real) {
 		Graphics g = screen.getGraphics();
-		g.setColor(Color.WHITE);
+		g.setColor(new Color(50, 50, 50));
 		g.fillRect(0, 0, imgwidth, imgheight);
 		for (int i = 0; i < MicrowaveObstacleSimulation.nx; i++) {
 			for (int j = 0; j < MicrowaveObstacleSimulation.ny; j++) {
@@ -570,8 +576,10 @@ class RenderCanvas extends JPanel {
 				int energy = (int) Math.round(parent.e[i][j]*0.0005*scalingconstant);
 				int energyavg = (int) Math.round(parent.eavg[i][j]*0.0015*scalingconstant);
 				int displacement = (int) Math.round(parent.u[i][j]*10*scalingconstant);
-				int fluxx = (int) Math.round(parent.phix[i][j]*10*scalingconstant);
-				int fluxy = (int) Math.round(parent.phiy[i][j]*10*scalingconstant);
+				int fluxx = (int) Math.round(parent.phix[i][j]*20*scalingconstant);
+				int fluxy = (int) Math.round(parent.phiy[i][j]*20*scalingconstant);
+				int bx = (int) Math.round(parent.bx[i][j]*50*scalingconstant);
+				int by = (int) Math.round(parent.by[i][j]*50*scalingconstant);
 				Color c = Color.WHITE;
 				if (parent.view == 1) {
 					c = new Color(clamp(Math.abs(fluxx)+128, 0, 255), clamp(127+energy, 0, 255), clamp(Math.abs(fluxy) + 128, 0, 255));
@@ -579,6 +587,8 @@ class RenderCanvas extends JPanel {
 					c = new Color(clamp(energyavg, 0, 255), 0, 0);
 				} else if (parent.view == 3) {
 					c = new Color(clamp(displacement, 0, 255), 0, clamp(-displacement, 0, 255));
+				} else if (parent.view == 4) {
+					c = new Color(clamp(Math.abs(bx)+128, 0, 255), 127, clamp(Math.abs(by) + 128, 0, 255));
 				}
 				if (parent.obstacles[i][j] == 1)
 					g.setColor(c);
@@ -605,12 +615,26 @@ class RenderCanvas extends JPanel {
 			if (parent.detectors[i].avgintensity > Imax)
 				Imax = parent.detectors[i].avgintensity;
 		}
-		for (int i = 0; i < parent.detectornum - 1; i++) {
-			g.setColor(Color.BLACK);
-			g.drawLine(graphcx + 15*(i - parent.detectornum/2), imgheight-2-(int)(225.0*parent.detectors[i].avgintensity/Imax), graphcx + 15*(1 + i - parent.detectornum/2), imgheight-2-(int)(225.0*parent.detectors[i+1].avgintensity/Imax));
-		}
-		g.drawString("Average intensity: " + parent.avgintensity, 20, imgheight-20);
+		((Graphics2D)g).setRenderingHint(
+		        RenderingHints.KEY_TEXT_ANTIALIASING,
+		        RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+		g.setFont(new Font("Arial Bold", Font.BOLD, 12));
+		g.setColor(new Color(255, 50, 50));
+		g.drawString("Average intensity: " + parent.avgintensity*parent.intensityfactor, 20, imgheight-20);
 		g.drawString("Time: " + String.format("%2.2f", parent.time), 20, imgheight-40);
+		
+		g.setColor(Color.BLACK);
+		g.fillRect(graphcx - 15*(parent.detectornum/2), imgheight - graphheight, 15*(parent.detectornum-1), graphheight);
+		g.setColor(new Color(255, 50, 50));
+		g.drawString("Expected intensity distribution", graphcx - 100, imgheight-graphheight+15);
+		for (int i = 0; i < parent.detectornum - 1; i++) {
+			g.setColor(new Color(155, 0, 0));
+			g.drawLine(graphcx + 15*(i - parent.detectornum/2), imgheight-2-(int)(225.0*parent.detectors[i].avgintensity/Imax), graphcx + 15*(1 + i - parent.detectornum/2), imgheight-2-(int)(225.0*parent.detectors[i+1].avgintensity/Imax));
+			g.setColor(new Color(255, 50, 50));
+			g.fillRect(graphcx + 15*(i - parent.detectornum/2) - 2, imgheight-2-(int)(225.0*parent.detectors[i].avgintensity/Imax) - 2, 4, 4);
+			if (i == parent.detectornum - 2)
+				g.fillRect(graphcx + 15*(i + 1 - parent.detectornum/2) - 2, imgheight-2-(int)(225.0*parent.detectors[i+1].avgintensity/Imax) - 2, 4, 4);
+		}
 		real.drawImage(screen, 0, 0, parent);
 	}
 	
